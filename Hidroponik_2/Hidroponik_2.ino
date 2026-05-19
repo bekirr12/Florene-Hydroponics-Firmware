@@ -87,8 +87,8 @@ void setup() {
   char apName[24];
   snprintf(apName, sizeof(apName), "Florene-%s", deviceID);
 
-  wifiManager.setConfigPortalBlocking(true);
-  wifiManager.setConfigPortalTimeout(0);
+  wifiManager.setConfigPortalBlocking(false);
+  wifiManager.setConfigPortalTimeout(AP_TIMEOUT);
   wifiManager.setConnectTimeout(15);
 
   wifiManager.setTitle("Florene");
@@ -162,7 +162,7 @@ void setup() {
   Serial.println("\n[WIFI] Kayıtlı WiFi kontrol ediliyor...");
   WiFi.begin();
   unsigned long connectStart = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - connectStart < 5000) {
+  while (WiFi.status() != WL_CONNECTED && millis() - connectStart < 10000) {
     delay(200);
     Serial.print(".");
   }
@@ -214,7 +214,8 @@ void setup() {
     wifiManager.startConfigPortal(apName, "florene123");
     Serial.println("[WIFI] Portal: http://192.168.4.1");
     Serial.println("[WIFI] Portal işlemi tamamlandı, ana döngüye geçiliyor...");
-    portalActive = false;
+    portalActive = true;
+    portalStartTime = millis();
   }
 
   WiFi.setAutoReconnect(true);
@@ -415,25 +416,28 @@ void loop() {
       wasConnected = true;
       syncTimeWithNTP();
       checkCommands();  // Ayarları çek
+      wifiManager.stopConfigPortal();
+      portalActive = false;
     }
 
-    if (millis() - portalStartTime > (unsigned long)AP_TIMEOUT * 1000) {
-      WiFi.softAPdisconnect(true);
+    if (portalActive && (millis() - portalStartTime > (unsigned long)AP_TIMEOUT * 1000)) {
+      wifiManager.stopConfigPortal(); // YENİ: Hem yayını keser hem HTTP sunucusunu kapatıp RAM'i temizler
       WiFi.mode(WIFI_STA);
-      WiFi.setAutoReconnect(false);  // Section 6 devralıyor
-      portalActive = false;
-      Serial.println("[WIFI] Ayar portalı kapatıldı (5dk doldu)");
+      WiFi.setAutoReconnect(false);  
+      portalActive = false;           // State makinemizi güncelliyoruz
+      Serial.println("[WIFI] Ayar portalı kapatıldı (5dk doldu, cihaz normal döngüye dönüyor)");
 
       if (WiFi.status() != WL_CONNECTED) {
         Serial.println("[WIFI] Kayıtlı WiFi'ye bağlanılıyor...");
         WiFi.begin();
       }
-
+      /*
       if (WiFi.status() == WL_CONNECTED && !wasConnected) {
         wasConnected = true;
         syncTimeWithNTP();
         checkCommands();
-      }
+        }
+      */
     }
   }
 
