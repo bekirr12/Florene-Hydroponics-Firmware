@@ -1,0 +1,14 @@
+# Gizli ayarlar (API anahtarı, portal şifresi) — asla commit'lenmez
+Hidroponik_2/secrets.h
+
+# Arduino / arduino-cli derleme çıktıları
+build/
+*.hex
+*.bin
+*.elf
+*.map
+
+# İşletim sistemi / editör
+.DS_Store
+Thumbs.db
+.vscode/

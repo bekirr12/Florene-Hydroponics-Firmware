@@ -1,106 +1,94 @@
 // ============================================================
-//  CONFIG.H - Ayarlar ve Pin Tanımlamaları
-//  Tüm sabitler, zamanlama, pin ayarları ve kalibrasyon burada
+//  CONFIG.H - Ayarlar, Pin Tanimlamalari ve Kalibrasyon
+//  Tum sabitler, zamanlama, pin ayarlari ve kalibrasyon burada.
+//  Not: constexpr kullanildi -> header birden fazla .cpp icine
+//  dahil edilse bile coklu-tanim (ODR) hatasi olusmaz.
 // ============================================================
 
 #ifndef CONFIG_H
 #define CONFIG_H
 
-// ==================== ZAMANLAMA AYARLARI ====================
-#define SERIAL_PRINT_INTERVAL 2000     // Seri monitör yazdırma (ms)
-#define API_SEND_INTERVAL 10000        // Veri gönderimi (ms)
-#define COMMAND_CHECK_INTERVAL 5000    // Komut kontrolü (ms)
+#include <Arduino.h>
 
-#define AP_TIMEOUT 300                 // WiFi AP süresi (saniye) = 5 dakika
-#define WIFI_RECONNECT_INTERVAL 30000  // WiFi yeniden bağlanma kontrolü (ms)
-#define WDT_TIMEOUT 60                 // Watchdog süresi (saniye)
-#define HTTP_TIMEOUT 10000             // HTTP timeout (ms)
-#define MAX_RECONNECT_ATTEMPTS 3       // WiFi.reconnect() deneme sayısı
-#define SCHEDULE_CHECK_INTERVAL 10000  // Zamanlama motoru kontrolü (ms)
-#define PUMP_SLOT_DURATION 5           // Pompa çalışma süresi (dakika/slot)
+// ==================== LOG MAKROLARI ====================
+// Tutarli seri cikti. Kullanim: LOG("WIFI", "Bagli: %s", ssid);
+// Tag ve format string derleme zamaninda birlestirilir (hepsi literal).
+#define LOG(tag, fmt, ...)  Serial.printf("[" tag "] " fmt "\n", ##__VA_ARGS__)
+
+// ==================== ZAMANLAMA AYARLARI ====================
+constexpr uint32_t SERIAL_PRINT_INTERVAL   = 2000;   // Seri monitor ozeti (ms)
+constexpr uint32_t API_SEND_INTERVAL       = 10000;  // Veri gonderimi / PUT (ms)
+constexpr uint32_t COMMAND_CHECK_INTERVAL  = 5000;   // Komut kontrolu / GET (ms)
+constexpr uint32_t SENSOR_READ_INTERVAL    = 2000;   // Sensor okuma (ms) - DHT11 min 1sn (2sn guvenli)
+constexpr uint32_t SCHEDULE_CHECK_INTERVAL = 2000;   // Zamanlama motoru + guvenlik (ms)
+
+constexpr uint16_t AP_TIMEOUT              = 300;    // WiFi AP suresi (saniye) = 5 dakika
+constexpr uint16_t WDT_TIMEOUT             = 60;     // Watchdog suresi (saniye)
+constexpr uint32_t HTTP_TIMEOUT            = 10000;  // HTTP timeout (ms)
+constexpr uint8_t  WIFI_CONNECT_TIMEOUT_S  = 10;     // Kayitli aga baglanma ust siniri (sn); ag yoksa hic beklenmez
+constexpr uint8_t  PUMP_SLOT_DURATION      = 5;      // Pompa calisma suresi (dakika/slot)
+
+// WiFi yeniden baglanma - exponential backoff (event-driven)
+constexpr uint32_t WIFI_BACKOFF_MIN_MS     = 1000;   // ilk deneme araligi
+constexpr uint32_t WIFI_BACKOFF_MAX_MS     = 60000;  // tavan (1 dk)
+
+// ==================== FreeRTOS GOREV AYARLARI ====================
+constexpr uint32_t CONTROL_TASK_STACK      = 4096;   // ControlTask stack (bytes)
+constexpr uint32_t NETWORK_TASK_STACK      = 12288;  // NetworkTask stack (HTTP/TLS icin genis)
+constexpr UBaseType_t CONTROL_TASK_PRIO    = 3;      // yuksek oncelik (guvenlik-kritik)
+constexpr UBaseType_t NETWORK_TASK_PRIO    = 2;
+constexpr BaseType_t  CONTROL_TASK_CORE    = 1;      // APP CPU
+constexpr BaseType_t  NETWORK_TASK_CORE    = 0;      // PRO CPU
+constexpr uint32_t CONTROL_TASK_PERIOD_MS  = 50;   // ControlTask dongu periyodu
 
 // ==================== PIN TANIMLAMALARI ====================
-// ESP32-S3-WROOM-1 Pin Haritası
-// Not: GPIO26, GPIO25, GPIO27 bu modelde YOKTUR.
-// Not: GPIO35, GPIO36, GPIO37 PSRAM içeren versiyonlarda kullanılamaz.
-// Not: GPIO19, GPIO20 dahili USB PHY için ayrılmıştır.
-// Not: GPIO0 Boot strapping pinidir, butona bağlanabilir (pull-up ile).
+// ESP32-S3-WROOM-1 Pin Haritasi
+// Not: GPIO26/25/27 bu modelde YOKTUR. GPIO19/20 dahili USB PHY.
+// Not: GPIO0 Boot strapping pinidir (pull-up ile butona baglanabilir).
 
 #define RESET_BTN_PIN 0     // WiFi reset butonu (BOOT)
 
+// DHT11 Sicaklik/Nem Sensoru
+#define DHT_PIN 11
+#define DHT_TYPE DHT11      // donanim DHT11
 
+// HC-SR04 Ultrasonik Su Seviye Sensoru
+#define HC_SR04_TRIG_PIN 9 // TRIG cikisi (U1TXD - Serial1 kullanilmiyorsa guvenli)
+#define HC_SR04_ECHO_PIN 10 // ECHO girisi
 
-// DHT22 Sıcaklık/Nem Sensörü
-// GPIO4 → RTC_GPIO4, TOUCH4, ADC1_CH3 — genel I/O için uygun
-#define DHT_PIN 4
-#define DHT_TYPE DHT11
+// Role Pinleri - HER IKISI DE AKTIF HIGH (HIGH=Acik, LOW=Kapali)
+#define RELAY_PUMP_PIN 8    // Pompa rolesi
+#define RELAY_LED_PIN 7    // LED rolesi
 
-// HC-SR04 Ultrasonik Su Seviye Sensörü
-// GPIO16 → RTC_GPIO16, ADC2_CH5 — ECHO girişi
-// GPIO17 → RTC_GPIO17, U1TXD, ADC2_CH6 — TRIG çıkışı
-// Not: GPIO17 aynı zamanda UART1 TX'tir; Serial1 kullanılmıyorsa güvenli.
-#define HC_SR04_TRIG_PIN 17
-#define HC_SR04_ECHO_PIN 16
+// Role mantik seviyeleri
+constexpr uint8_t RELAY_ON  = HIGH;   // Aktif HIGH roleyi acar
+constexpr uint8_t RELAY_OFF = LOW;
 
-// Şimdilik harici RTC modülünü kaldırıyoruz.
-/*
-// RTC Modülü (DS1302)
-#define RTC_DAT_PIN 26
-#define RTC_CLK_PIN 25
-#define RTC_RST_PIN 27
-*/
+// ==================== KALIBRASYON ====================
+// Su seviyesi HC-SR04 ile mesafe (cm) olarak olculur. Sensor su yuzeyine
+// yakin (kucuk mesafe) = tank dolu; uzak (buyuk mesafe) = tank bos.
+constexpr float WATER_SAFETY_DISTANCE_CM = 16.0f;  // >= bu ise su kritik -> pompa GUVENLIK KAPATMASI
+constexpr float WATER_TANK_FULL_CM       = 3.0f;   // dolu tankta su yuzeyine mesafe
+constexpr float WATER_TANK_EMPTY_CM      = 20.0f;  // bos tankta mesafe
+constexpr int   WATER_READ_SAMPLES       = 5;      // medyan icin olcum sayisi
+constexpr int   WATER_READ_ERROR_CM      = 999;    // okuma hatasi sentinel degeri
 
-// Röle Pinleri (Aktif LOW — LOW=Açık, HIGH=Kapalı)
-// GPIO5  → RTC_GPIO5, TOUCH5, ADC1_CH4 — Pompa rölesi
-// GPIO18 → RTC_GPIO18, U1RXD, ADC2_CH7 — LED rölesi
-#define RELAY_PUMP_PIN 5    // Pompa rölesi
-#define RELAY_LED_PIN 18    // LED rölesi
+// ==================== NTP / SAAT AYARLARI ====================
+// ESP32-S3 dahili RTC + NTP (SNTP). Harici DS1302 kullanilmaz.
+constexpr const char* NTP_SERVER_1 = "pool.ntp.org";
+constexpr const char* NTP_SERVER_2 = "time.google.com";
+constexpr const char* NTP_SERVER_3 = "time.cloudflare.com";
+constexpr uint32_t NTP_TIMEOUT_MS     = 10000;     // NTP timeout (ms)
+constexpr uint32_t NTP_SYNC_INTERVAL  = 43200000;  // 12 saat (ms)
 
-// ==================== SABİTLER ====================
-#define VREF 3.3
+// Turkiye sabit GMT+3, yaz saati (DST) yok. Timezone secim listesi kaldirildi.
+constexpr long  TIMEZONE_OFFSET_SEC = 10800;
+constexpr const char* TIMEZONE_LABEL = "Turkiye (GMT+3)";
 
-// ==================== NTP AYARLARI ====================
-// ESP32-S3 dahili RTC + NTP ile saat yönetimi
-// Harici DS1302 RTC modülü kullanılmamaktadır.
-const char* NTP_SERVER_1 = "pool.ntp.org";
-const char* NTP_SERVER_2 = "time.google.com";
-const char* NTP_SERVER_3 = "time.cloudflare.com";
-const int NTP_TIMEOUT = 10000;                    // NTP timeout (ms)
-const unsigned long NTP_SYNC_INTERVAL = 43200000; // 12 saat (ms)
+// ==================== ZAMANLAMA VARSAYILANLARI ====================
+// API'den ayar gelene kadar kullanilan makul production defaultlari.
+constexpr const char* DEFAULT_LED_START  = "08:00";
+constexpr const char* DEFAULT_LED_END    = "20:00";
+constexpr const char* DEFAULT_PUMP_SLOTS = "08:00,20:00";
 
-// ==================== TIMEZONE LİSTESİ ====================
-struct TimezoneOption {
-  const char* label;
-  const char* value;
-  long offsetSec;
-};
-
-const TimezoneOption TIMEZONES[] = {
-  {"Türkiye (GMT+3)",           "10800",   10800},
-  {"Almanya (GMT+1)",           "3600",    3600},
-  {"Fransa (GMT+1)",            "3600",    3600},
-  {"İngiltere (GMT+0)",         "0",       0},
-  {"İspanya (GMT+1)",           "3600",    3600},
-  {"İtalya (GMT+1)",            "3600",    3600},
-  {"Hollanda (GMT+1)",          "3600",    3600},
-  {"Belçika (GMT+1)",           "3600",    3600},
-  {"Yunanistan (GMT+2)",        "7200",    7200},
-  {"Polonya (GMT+1)",           "3600",    3600},
-  {"Rusya Moskova (GMT+3)",     "10800",   10800},
-  {"BAE Dubai (GMT+4)",         "14400",   14400},
-  {"Suudi Arabistan (GMT+3)",   "10800",   10800},
-  {"Hindistan (GMT+5:30)",      "19800",   19800},
-  {"Çin (GMT+8)",               "28800",   28800},
-  {"Japonya (GMT+9)",           "32400",   32400},
-  {"Avustralya Sydney (GMT+10)","36000",   36000},
-  {"ABD Doğu (GMT-5)",          "-18000", -18000},
-  {"ABD Merkez (GMT-6)",        "-21600", -21600},
-  {"ABD Batı (GMT-8)",          "-28800", -28800},
-  {"Brezilya (GMT-3)",          "-10800", -10800},
-  {"Arjantin (GMT-3)",          "-10800", -10800},
-  {"Meksika (GMT-6)",           "-21600", -21600}
-};
-
-const int TIMEZONE_COUNT = sizeof(TIMEZONES) / sizeof(TIMEZONES[0]);
-
-#endif
+#endif // CONFIG_H
