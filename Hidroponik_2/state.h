@@ -1,7 +1,5 @@
 // ============================================================
 //  STATE.H - Paylasilan Sistem Durumu (FreeRTOS mutex korumali)
-//  Onceki globals.h yerine gecer. Header'da EXTERN bildirim,
-//  tanim state.cpp icinde -> coklu-tanim (ODR) hatasi olmaz.
 //
 //  Erisim kurali: g_state alanlarina her zaman stateLock()/
 //  stateUnlock() arasinda erisilir (ControlTask ve NetworkTask
@@ -40,7 +38,6 @@ struct RelayState {
 // ---- Ag / saat durumu (NetworkTask yazar) ----
 struct NetState {
   bool wifiConnected = false;
-  bool portalActive  = false;
   bool ntpSynced     = false;
 };
 

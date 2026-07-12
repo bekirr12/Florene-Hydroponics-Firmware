@@ -350,18 +350,12 @@ void netInit() {
   wifiManager.setWebServerCallback(onAPStarted);
 }
 
-// Portali baslat (yardimci) - baglanti durumuna gore mesaj gosterir
+// Portali baslat (yardimci). Not: startPortal yalnizca WiFi bagli DEGILken
+// cagrilir (netStartConnectOrPortal), o yuzden hep "agini sec" mesaji gosterilir.
 static void startPortal() {
-  bool connected = (WiFi.status() == WL_CONNECTED);
-  if (connected) {
-    snprintf(s_apMessage, sizeof(s_apMessage),
-      "<div class='msg'>&#127793; <b>Florene</b> aktif<br>"
-      "&#128246; Bagli: <b>%s</b></div>", WiFi.SSID().c_str());
-  } else {
-    snprintf(s_apMessage, sizeof(s_apMessage),
-      "<div class='msg'>WiFi aginizi secin ve sifreyi girin.<br>"
-      "<small>Yalnizca 2.4 GHz desteklenir.</small></div>");
-  }
+  snprintf(s_apMessage, sizeof(s_apMessage),
+    "<div class='msg'>WiFi aginizi secin ve sifreyi girin.<br>"
+    "<small>Yalnizca 2.4 GHz desteklenir.</small></div>");
   static WiFiManagerParameter custom_text(s_apMessage);
   wifiManager.addParameter(&custom_text);
 
@@ -374,7 +368,6 @@ static void startPortal() {
 
   s_portalActive = true;
   s_portalStart  = millis();
-  stateLock(); g_state.net.portalActive = true; stateUnlock();
 
   LOG("WIFI", "Portal: http://192.168.4.1 | Sifre: %s | %d sn aktif",
       PORTAL_AP_PASSWORD, AP_TIMEOUT);
@@ -427,7 +420,6 @@ void netLoop() {
       WiFi.softAPdisconnect(true);
       WiFi.mode(WIFI_STA);
       s_portalActive = false;
-      stateLock(); g_state.net.portalActive = false; stateUnlock();
       LOG("WIFI", "Portal kapatildi (baglanti basarili).");
       return;
     }
@@ -438,7 +430,6 @@ void netLoop() {
       WiFi.softAPdisconnect(true);
       WiFi.mode(WIFI_STA);
       s_portalActive = false;
-      stateLock(); g_state.net.portalActive = false; stateUnlock();
       WiFi.begin();  // kayitli aga tekrar dene
       s_lastAttempt = millis();
     }

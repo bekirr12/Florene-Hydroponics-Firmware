@@ -12,7 +12,4 @@ void sensorsInit();
 // ControlTask tarafindan periyodik cagrilir.
 void sensorsRead();
 
-// Ham su seviyesi mesafesi (cm) - 5 olcum medyani. Kilit almaz.
-float readWaterLevelCm();
-
 #endif // SENSORS_H

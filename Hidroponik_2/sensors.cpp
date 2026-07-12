@@ -32,7 +32,7 @@ static int getMedianNum(int arr[], int len) {
   return (tmp[len / 2] + tmp[len / 2 - 1]) / 2;
 }
 
-float readWaterLevelCm() {
+static float readWaterLevelCm() {
   int distances[WATER_READ_SAMPLES];
 
   for (int i = 0; i < WATER_READ_SAMPLES; i++) {

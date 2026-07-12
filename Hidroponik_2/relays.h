@@ -8,9 +8,6 @@
 // Role pinlerini baslat (KAPALI konumda)
 void relaysInit();
 
-// "HH:MM" -> dakika (0..1439), gecersizse -1
-int timeToMinutes(const char* hhmm);
-
 // Zamanlama motorunu calistir: zamanlama/override/guvenlik -> role GPIO.
 // ControlTask tarafindan periyodik cagrilir. Kilidi kisa tutar.
 void updateRelays();

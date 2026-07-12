@@ -16,7 +16,7 @@ void relaysInit() {
   digitalWrite(RELAY_LED_PIN,  RELAY_OFF);
 }
 
-int timeToMinutes(const char* hhmm) {
+static int timeToMinutes(const char* hhmm) {
   int h = 0, m = 0;
   if (sscanf(hhmm, "%d:%d", &h, &m) == 2) return h * 60 + m;
   return -1;
